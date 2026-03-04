@@ -5,13 +5,18 @@ const dotenv = require("dotenv");
 const nodemailer = require("nodemailer");
 
 dotenv.config();
+
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: "*", // later change to frontend domain
+  methods: ["GET", "POST"],
+}));
+
 app.use(express.json());
 
-// Connect MongoDB
+// MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected"))
   .catch(err => console.log(err));
@@ -27,36 +32,35 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Route
 app.post("/register", async (req, res) => {
   try {
-    console.log("BODY:", req.body); 
     const { username, email, phone } = req.body;
 
     const newUser = new User({ username, email, phone });
     await newUser.save();
+
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.EMAIL_USER,
-      replyTo: email,   // THIS IS IMPORTANT
+      replyTo: email,
       subject: "New Contact Lead Received",
       html: `
         <h3>New Customer Details</h3>
         <p><b>Name:</b> ${username}</p>
         <p><b>Email:</b> ${email}</p>
         <p><b>Phone:</b> ${phone}</p>
-        <br/>
-        <p>Click reply to contact this user directly.</p>
       `
     });
 
     res.status(200).json({ message: "Data saved & mail sent" });
 
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).json({ message: "Something went wrong" });
   }
 });
 
-app.listen(process.env.PORT, () => {
+app.listen(process.env.PORT || 5000, () => {
   console.log(`Server running on port ${process.env.PORT}`);
 });
