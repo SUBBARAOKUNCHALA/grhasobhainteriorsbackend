@@ -8,31 +8,39 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
 app.use(cors({
-  origin: "*", // later change to frontend domain
+  origin: "*",
   methods: ["GET", "POST"],
 }));
 
 app.use(express.json());
 
-// MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected"))
   .catch(err => console.log(err));
 
 const User = require("./models/User");
 
-// Email Setup
+// ✅ Fixed transporter
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASS,  // App Password here
+  },
+  tls: {
+    rejectUnauthorized: false,
   },
 });
 
-// Route
+// Verify on startup
+transporter.verify((error, success) => {
+  if (error) console.log("SMTP Error:", error);
+  else console.log("SMTP Ready ✅");
+});
+
 app.post("/register", async (req, res) => {
   try {
     const { username, email, phone } = req.body;
@@ -41,26 +49,36 @@ app.post("/register", async (req, res) => {
     await newUser.save();
 
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: `"Grha Sobha Website" <${process.env.EMAIL_USER}>`,
       to: process.env.EMAIL_USER,
       replyTo: email,
-      subject: "New Contact Lead Received",
+      subject: "New Consultation Request",
       html: `
-        <h3>New Customer Details</h3>
-        <p><b>Name:</b> ${username}</p>
-        <p><b>Email:</b> ${email}</p>
-        <p><b>Phone:</b> ${phone}</p>
-      `
+        <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;">
+          <div style="background:#0d2b2b;padding:24px 28px;border-radius:10px 10px 0 0;">
+            <h2 style="color:#e8b86d;margin:0;letter-spacing:2px;">GRHA SOBHA</h2>
+            <p style="color:rgba(245,240,235,0.6);margin:4px 0 0;font-size:12px;">New Consultation Request</p>
+          </div>
+          <div style="background:#f9f6f2;padding:24px 28px;border-radius:0 0 10px 10px;">
+            <p><b>Name:</b> ${username}</p>
+            <p><b>Email:</b> ${email}</p>
+            <p><b>Phone:</b> ${phone}</p>
+            <p style="color:#888;font-size:12px;margin-top:20px;">
+              Sent from grhasobha.com contact form
+            </p>
+          </div>
+        </div>
+      `,
     });
 
     res.status(200).json({ message: "Data saved & mail sent" });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Something went wrong" });
+    console.error("Error:", error);
+    res.status(500).json({ message: "Something went wrong", error: error.message });
   }
 });
 
 app.listen(process.env.PORT || 5000, () => {
-  console.log(`Server running on port ${process.env.PORT}`);
+  console.log(`Server running on port ${process.env.PORT || 5000}`);
 });
