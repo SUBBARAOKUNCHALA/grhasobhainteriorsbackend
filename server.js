@@ -43,10 +43,12 @@ transporter.verify((error, success) => {
 
 app.post("/register", async (req, res) => {
   try {
+    console.log("subbu",req.body)
     const { username, email, phone } = req.body;
 
     const newUser = new User({ username, email, phone });
     await newUser.save();
+    console.log("subbu")
 
     await transporter.sendMail({
       from: `"Grha Sobha Website" <${process.env.EMAIL_USER}>`,
