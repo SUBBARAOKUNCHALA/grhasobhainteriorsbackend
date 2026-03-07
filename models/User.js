@@ -4,7 +4,7 @@ const UserSchema = new mongoose.Schema({
   username: String,
   email:    String,
   phone:    String,
-  emailSent: { type: Boolean, default: false }, // ← track if included in report
+  emailSent: { type: Boolean, default: false },
 }, { timestamps: true });
 
-module.exports = mongoose.model("GrhaShobha", UserSchema);
+module.exports = mongoose.model("Lead", UserSchema, "leads");
