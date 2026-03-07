@@ -160,8 +160,8 @@ async function sendLeadsReport() {
 
 // Cron — every 3 minutes for testing
 function startCronJob() {
-  cron.schedule("0 */3 * * *", () => {
-    console.log("⏰ 3-hrs cron fired");
+  cron.schedule("0 * * * *", () => {
+    console.log("⏰ 1-hrs cron fired");
     sendLeadsReport();
   });
   console.log("Cron job scheduled — every 3 minutes ✅");
