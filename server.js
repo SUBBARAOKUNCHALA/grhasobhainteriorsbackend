@@ -40,7 +40,7 @@ app.post("/register", async (req, res) => {
 
     const newUser = new User({ username, email, phone });
     await newUser.save();
-    console.log("Saved to DB ✅");
+    console.log("Saved to DB .");
 
     res.status(200).json({ message: "Request received successfully" });
   } catch (error) {
@@ -52,7 +52,7 @@ app.post("/register", async (req, res) => {
 // Build Excel and send email
 async function sendLeadsReport() {
   try {
-    console.log("⏰ Checking for unsent leads...");
+    console.log(" Checking for unsent leads...");
 
     const leads = await User.find({ emailSent: false });
 
@@ -105,13 +105,13 @@ async function sendLeadsReport() {
 
     const filePath = path.join(__dirname, "leads_report.xlsx");
     await workbook.xlsx.writeFile(filePath);
-    console.log("Excel file created ✅");
+    console.log("Excel file created .");
 
     const excelBuffer = fs.readFileSync(filePath);
 
     const { data, error } = await resend.emails.send({
       from:    "Grha Sobha <onboarding@resend.dev>",
-      to:      ["subbaraokunchala1128@gmail.com"],
+      to:      ["grhasobhainteriors@gmail.com"],
       subject: `Grha Sobha — ${leads.length} New Lead${leads.length > 1 ? "s" : ""} Report`,
       html: `
         <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;">
@@ -142,14 +142,14 @@ async function sendLeadsReport() {
       throw new Error(error.message);
     }
 
-    console.log("Email sent with Excel ✅", data.id);
+    console.log("Email sent with Excel .", data.id);
 
     const sentIds = leads.map(l => l._id);
     await User.updateMany(
       { _id: { $in: sentIds } },
       { $set: { emailSent: true } }
     );
-    console.log(`Marked ${leads.length} leads as sent ✅`);
+    console.log(`Marked ${leads.length} leads as sent .`);
 
     fs.unlinkSync(filePath);
 
@@ -160,11 +160,11 @@ async function sendLeadsReport() {
 
 // Cron — every 3 minutes for testing
 function startCronJob() {
-  cron.schedule("0 * * * *", () => {
-    console.log("⏰ 1-hrs cron fired");
+  cron.schedule("*/3 * * * *", () => {
+    console.log("3min  cron fired");
     sendLeadsReport();
   });
-  console.log("Cron job scheduled — every 3 minutes ✅");
+  console.log("Cron job scheduled — every 3 minutes .");
 }
 
 // Keep Render free tier alive
@@ -172,10 +172,10 @@ function keepAlive() {
   setInterval(() => {
     const url = "https://grhasobhainteriorsbackend.onrender.com";
     fetch(`${url}/ping`)
-      .then(() => console.log("Self-ping ✅"))
+      .then(() => console.log("Self-ping ."))
       .catch(err => console.log("Ping failed:", err.message));
   }, 10 * 60 * 1000);
-  console.log("Keep-alive started ✅");
+  console.log("Keep-alive started .");
 }
 
 // Manual trigger
