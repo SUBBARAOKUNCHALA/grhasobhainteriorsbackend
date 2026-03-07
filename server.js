@@ -2,14 +2,15 @@ const express    = require("express");
 const mongoose   = require("mongoose");
 const cors       = require("cors");
 const dotenv     = require("dotenv");
-const nodemailer = require("nodemailer");
 const ExcelJS    = require("exceljs");
 const cron       = require("node-cron");
 const path       = require("path");
 const fs         = require("fs");
+
+dotenv.config(); // ← MUST be first
+
 const { Resend } = require("resend");
 const resend = new Resend(process.env.RESEND_API_KEY);
-dotenv.config();
 
 const app = express();
 
@@ -19,25 +20,19 @@ app.use(express.json());
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log("MongoDB Connected");
-    startCronJob(); // start scheduler after DB connects
+    startCronJob();
+    keepAlive();
   })
   .catch(err => console.log(err));
 
 const User = require("./models/User");
 
-// ── Nodemailer (only used locally — on Render replace with Resend) ──
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: { rejectUnauthorized: false },
+// Ping route — keeps Render awake
+app.get("/ping", (req, res) => {
+  res.json({ status: "alive", time: new Date().toISOString() });
 });
 
-// ── Register route — save data, return success immediately ──
+// Register route
 app.post("/register", async (req, res) => {
   try {
     const { username, email, phone } = req.body;
@@ -47,24 +42,22 @@ app.post("/register", async (req, res) => {
     await newUser.save();
     console.log("Saved to DB ✅");
 
-    // Return success immediately — no email sent here
     res.status(200).json({ message: "Request received successfully" });
-
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ message: "Something went wrong", error: error.message });
   }
 });
 
-// ── Build Excel and send email ──
+// Build Excel and send email
 async function sendLeadsReport() {
   try {
-    console.log("⏰ Cron triggered — checking for unsent leads...");
+    console.log("⏰ Checking for unsent leads...");
 
     const leads = await User.find({ emailSent: false });
 
     if (leads.length === 0) {
-      console.log("No new leads. Skipping email.");
+      console.log("No new leads. Skipping.");
       return;
     }
 
@@ -114,7 +107,6 @@ async function sendLeadsReport() {
     await workbook.xlsx.writeFile(filePath);
     console.log("Excel file created ✅");
 
-    // Send via Resend
     const excelBuffer = fs.readFileSync(filePath);
 
     const { data, error } = await resend.emails.send({
@@ -152,7 +144,6 @@ async function sendLeadsReport() {
 
     console.log("Email sent with Excel ✅", data.id);
 
-    // Mark as sent
     const sentIds = leads.map(l => l._id);
     await User.updateMany(
       { _id: { $in: sentIds } },
@@ -167,18 +158,27 @@ async function sendLeadsReport() {
   }
 }
 
-// ── Cron job — runs every 3 hours ──
+// Cron — every 3 minutes for testing
 function startCronJob() {
-  // "0 */3 * * *" = at minute 0 of every 3rd hour (12am, 3am, 6am, 9am...)
-  cron.schedule("0 */3 * * *", () => {
-    console.log("⏰ 3-hour cron fired");
+  cron.schedule("*/3 * * * *", () => {
+    console.log("⏰ 3-min cron fired");
     sendLeadsReport();
   });
-
-  console.log("Cron job scheduled — every 3 hours ✅");
+  console.log("Cron job scheduled — every 3 minutes ✅");
 }
 
-// ── Manual trigger for testing ──
+// Keep Render free tier alive
+function keepAlive() {
+  setInterval(() => {
+    const url = "https://grhasobhainteriorsbackend.onrender.com";
+    fetch(`${url}/ping`)
+      .then(() => console.log("Self-ping ✅"))
+      .catch(err => console.log("Ping failed:", err.message));
+  }, 10 * 60 * 1000);
+  console.log("Keep-alive started ✅");
+}
+
+// Manual trigger
 app.get("/send-report-now", async (req, res) => {
   await sendLeadsReport();
   res.json({ message: "Report triggered manually" });
